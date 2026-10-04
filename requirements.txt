@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+feedparser
+sentence-transformers
+scikit-learn
+numpy
+httpx
+psycopg[binary]
