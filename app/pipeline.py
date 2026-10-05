@@ -19,7 +19,9 @@ from sklearn.cluster import DBSCAN
 
 from app import db, llm
 
-FEEDS = {
+# Используется только для разового засева пустой таблицы feeds.
+# После первого запуска источник правды — таблица, не этот словарь.
+SEED_FEEDS = {
     'BBC News': 'https://feeds.bbci.co.uk/news/rss.xml',
     'The Guardian': 'https://www.theguardian.com/world/rss',
     'The New York Times': 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml',
@@ -34,8 +36,13 @@ FEEDS = {
     'NPR News': 'https://feeds.npr.org/1001/rss.xml',
     'РБК': 'https://rssexport.rbc.ru/rbcnews/news/30/full.rss',
 }
-LOOKBACK_HOURS = int(os.environ.get('LOOKBACK_HOURS', '48'))
-MIN_SOURCES = int(os.environ.get('MIN_SOURCES', '2'))
+
+DEFAULT_SETTINGS = {
+    'pipeline_interval_hours': 2,
+    'lookback_hours': 48,
+    'min_sources': 2,
+}
+
 RSS_TIMEOUT = 6
 SIMILARITY_THRESHOLD = 0.60
 MAX_ARTICLES = 200
@@ -77,6 +84,68 @@ class TextExtractor(HTMLParser):
 def log(message: str) -> None:
     print(message, flush=True)
 
+
+# ---------- Настройки и ленты из БД ----------
+
+def load_settings(conn: Any) -> dict[str, Any]:
+    settings = dict(DEFAULT_SETTINGS)
+    rows = conn.execute('SELECT key, value FROM settings').fetchall()
+    for row in rows:
+        settings[row['key']] = row['value']
+    return settings
+
+
+def load_feeds(conn: Any) -> dict[str, str]:
+    rows = conn.execute(
+        'SELECT name, url FROM feeds WHERE enabled ORDER BY id',
+    ).fetchall()
+    if rows:
+        return {row['name']: row['url'] for row in rows}
+    log('Таблица feeds пуста — засеваю стартовым списком.')
+    for name, url in SEED_FEEDS.items():
+        conn.execute(
+            '''INSERT INTO feeds (name, url) VALUES (%s, %s)
+               ON CONFLICT (name) DO NOTHING''',
+            (name, url),
+        )
+    conn.commit()
+    return dict(SEED_FEEDS)
+
+
+def run_requested(conn: Any) -> bool:
+    row = conn.execute(
+        "SELECT value FROM settings WHERE key = 'run_requested'",
+    ).fetchone()
+    return bool(row and row['value'] is True)
+
+
+def clear_run_request(conn: Any) -> None:
+    conn.execute(
+        "UPDATE settings SET value = 'false', updated_at = now() "
+        "WHERE key = 'run_requested'",
+    )
+    conn.commit()
+
+
+def should_run(conn: Any, interval_hours: float) -> bool:
+    if run_requested(conn):
+        log('Обнаружен ручной запрос запуска (run_requested).')
+        return True
+    row = conn.execute(
+        "SELECT finished_at FROM runs WHERE status = 'success' "
+        'ORDER BY id DESC LIMIT 1',
+    ).fetchone()
+    if row is None or row['finished_at'] is None:
+        return True
+    elapsed = datetime.now(timezone.utc) - row['finished_at']
+    if elapsed >= timedelta(hours=float(interval_hours)):
+        return True
+    log(f'С последнего запуска прошло {elapsed}, интервал '
+        f'{interval_hours} ч. не истёк — выход.')
+    return False
+
+
+# ---------- Сбор статей ----------
 
 def clean(value: str | None) -> str:
     if not value:
@@ -123,9 +192,9 @@ def dedup_key(source: str, title: str, link: str) -> str:
     return link or f'{source}:{title}'
 
 
-def collect_articles(conn: Any, cutoff: datetime) -> None:
-    for number, (source, url) in enumerate(FEEDS.items(), 1):
-        log(f'[{number}/{len(FEEDS)}] Загрузка: {source}')
+def collect_articles(conn: Any, feeds: dict[str, str], cutoff: datetime) -> None:
+    for number, (source, url) in enumerate(feeds.items(), 1):
+        log(f'[{number}/{len(feeds)}] Загрузка: {source}')
         feed = fetch(source, url)
         if feed is None:
             continue
@@ -168,6 +237,8 @@ def recent_articles(conn: Any, cutoff: datetime) -> list[dict[str, Any]]:
         row['summary'] = row['summary'][:1500]
     return rows
 
+
+# ---------- Кластеризация и суммаризация ----------
 
 def group_articles(items: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
     if not items:
@@ -266,11 +337,19 @@ def save_story(conn: Any, hash_value: str,
     conn.commit()
 
 
+# ---------- Главный цикл ----------
+
 def main() -> None:
-    now = datetime.now(timezone.utc)
-    cutoff = now - timedelta(hours=LOOKBACK_HOURS)
     conn = db.connect()
     db.init_schema(conn)
+    settings = load_settings(conn)
+    if not should_run(conn, settings['pipeline_interval_hours']):
+        conn.close()
+        return
+    clear_run_request(conn)
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(hours=float(settings['lookback_hours']))
+    min_sources = int(settings['min_sources'])
     cursor = conn.execute(
         "INSERT INTO runs (status) VALUES ('running') RETURNING id",
     )
@@ -279,15 +358,17 @@ def main() -> None:
     stats = {'accepted': 0, 'rejected': 0, 'skipped_known': 0, 'errors': 0}
     try:
         log(f'Период: {cutoff:%Y-%m-%d %H:%M} UTC - {now:%Y-%m-%d %H:%M} UTC')
-        collect_articles(conn, cutoff)
+        feeds = load_feeds(conn)
+        log(f'Активных лент: {len(feeds)}')
+        collect_articles(conn, feeds, cutoff)
         items = recent_articles(conn, cutoff)
         log(f'Статей для анализа: {len(items)}')
         groups = group_articles(items)
         eligible = [
             g for g in groups
-            if len({i['source'] for i in g}) >= MIN_SOURCES
+            if len({i['source'] for i in g}) >= min_sources
         ]
-        log(f'Групп из минимум {MIN_SOURCES} источников: {len(eligible)}')
+        log(f'Групп из минимум {min_sources} источников: {len(eligible)}')
         for number, group in enumerate(eligible, 1):
             hash_value = group_hash(group)
             if story_exists(conn, hash_value):
