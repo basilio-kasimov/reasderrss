@@ -19,6 +19,21 @@ CREATE TABLE IF NOT EXISTS articles (
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS settings (
+    key        TEXT PRIMARY KEY,
+    value      JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS feeds (
+    id         SERIAL PRIMARY KEY,
+    name       TEXT UNIQUE NOT NULL,
+    url        TEXT NOT NULL,
+    enabled    BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+
 CREATE INDEX IF NOT EXISTS idx_articles_published ON articles (published_at DESC);
 
 CREATE TABLE IF NOT EXISTS stories (
