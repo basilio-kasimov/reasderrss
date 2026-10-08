@@ -13,6 +13,10 @@ TIMEOUT = 180
 MAX_RETRIES = 4
 
 
+class ModelUnavailableError(RuntimeError):
+    pass
+
+
 def _extract_json(text: str) -> dict[str, Any]:
     text = text.strip()
     # Бесплатные модели иногда оборачивают ответ в ```json ... ```
@@ -38,6 +42,10 @@ def generate(prompt: str) -> dict[str, Any]:
             )
         except httpx.HTTPError as error:
             raise RuntimeError(f'Ошибка сети OpenRouter: {error}') from error
+        if response.status_code == 404:
+            raise ModelUnavailableError(
+                f'Модель {MODEL} недоступна: {response.text[:300]}'
+            )
         if response.status_code == 429:
             if attempt == MAX_RETRIES:
                 raise RuntimeError('OpenRouter: превышен rate limit (429).')

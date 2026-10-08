@@ -378,6 +378,8 @@ def main() -> None:
             log(f'[{number}/{len(eligible)}] Анализ через LLM')
             try:
                 story = summarize(group)
+            except llm.ModelUnavailableError:
+                raise   # конфигурационная ошибка — прерываем прогон целиком
             except RuntimeError as error:
                 stats['errors'] += 1
                 log(f'[WARNING] Группа пропущена: {error}')
