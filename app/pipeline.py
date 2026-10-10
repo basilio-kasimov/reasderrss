@@ -265,12 +265,15 @@ def group_hash(group: list[dict[str, Any]]) -> str:
     keys = sorted(dedup_key(i['source'], i['title'], i['link']) for i in group)
     return hashlib.sha256('\n'.join(keys).encode('utf-8')).hexdigest()
 
-
-def story_exists(conn: Any, hash_value: str) -> bool:
-    cursor = conn.execute(
-        'SELECT 1 FROM stories WHERE group_hash = %s', (hash_value,),
-    )
-    return cursor.fetchone() is not None
+def story_exists(conn: Any, group: list[dict[str, Any]]) -> bool:
+    """Группа известна, если >=70% её статей уже входят в какой-либо сюжет."""
+    ids = [item['id'] for item in group]
+    row = conn.execute(
+        '''SELECT count(DISTINCT article_id) AS n
+           FROM story_articles WHERE article_id = ANY(%s)''',
+        (ids,),
+    ).fetchone()
+    return row['n'] >= 0.7 * len(ids)
 
 
 def summarize(group: list[dict[str, Any]]) -> dict[str, Any]:
@@ -282,6 +285,8 @@ def summarize(group: list[dict[str, Any]]) -> dict[str, Any]:
     prompt = f'''Ты проверяешь группу новостных публикаций.
 Определи, описывают ли все материалы одно событие или один сюжет.
 Используй только переданные материалы и не придумывай факты.
+Пиши строго на русском языке. Переводи все английские названия, термины и цитаты.
+Латиницу можно оставлять только в именах собственных (названия компаний, продуктов, СМИ).
 Верни только JSON:
 {{
   "same_story": true,
@@ -371,7 +376,7 @@ def main() -> None:
         log(f'Групп из минимум {min_sources} источников: {len(eligible)}')
         for number, group in enumerate(eligible, 1):
             hash_value = group_hash(group)
-            if story_exists(conn, hash_value):
+            if story_exists(conn, group):
                 stats['skipped_known'] += 1
                 log(f'[{number}/{len(eligible)}] Уже обработана, пропуск')
                 continue
