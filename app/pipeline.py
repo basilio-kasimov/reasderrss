@@ -38,8 +38,8 @@ SEED_FEEDS = {
 }
 
 DEFAULT_SETTINGS = {
-    'pipeline_interval_hours': 2,
-    'lookback_hours': 48,
+    'pipeline_interval_hours': 6,
+    'lookback_hours': 36,
     'min_sources': 2,
 }
 
