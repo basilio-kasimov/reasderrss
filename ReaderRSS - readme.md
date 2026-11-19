@@ -109,7 +109,7 @@ ADMIN_TOKEN=...
 |---|---|---|
 | `pipeline_interval_hours` | 6 | было 2 |
 | `lookback_hours` | 36 | было 48 |
-| `min_sources` | — | не переопределён, действует дефолт 2 |
+| `min_sources` | 3 | было 2 (дефолт), задано из админки |
 
 ### Стоимость LLM
 
@@ -253,7 +253,7 @@ curl -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: applicatio
 ### Требуют проверки
 
 - [ ] `run_requested = true` в таблице — убедиться, что `news-worker.timer` жив и прогоны идут.
-- [ ] Сохранение `min_sources` из админки даёт ошибку — выполнить PUT с сервера и/или снять стектрейс из Logcat (`AdminViewModel`).
+- [x] Сохранение `min_sources` из админки — исправлено (newsreader `8dc6e68`, `@JvmSuppressWildcards` в `AdminApi.putSettings`), проверено на устройстве 2026-11-19.
 - [ ] Фактическое срабатывание `SyncWorker` в фоне не подтверждено (учесть усыпление фоновых приложений на Samsung).
 - [ ] Фикс клавиатуры в настройках (`imePadding()` на Scaffold, `adjustResize` в манифесте) — проверить.
 
