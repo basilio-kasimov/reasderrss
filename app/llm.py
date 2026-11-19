@@ -10,6 +10,11 @@ OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 API_KEY = os.environ['OPENROUTER_API_KEY']
 MODEL = os.environ.get('LLM_MODEL', 'qwen/qwen-2.5-72b-instruct:free')
 TIMEOUT = 180
+# Потолок длины ответа модели в токенах. Без него OpenRouter резервирует под ответ
+# весь контекст модели (~131k) и отвечает 402, если на балансе меньше.
+# Наш ответ — JSON с заголовком, 2–4 абзацами и фактами, это ~1–2k токенов;
+# запас нужен на случай, если модель «думает» перед ответом.
+MAX_TOKENS = int(os.environ.get('LLM_MAX_TOKENS', '4000'))
 MAX_RETRIES = 4
 
 
@@ -31,6 +36,7 @@ def generate(prompt: str) -> dict[str, Any]:
         'model': MODEL,
         'messages': [{'role': 'user', 'content': prompt}],
         'temperature': 0.1,
+        'max_tokens': MAX_TOKENS,
         'response_format': {'type': 'json_object'},
     }
     headers = {'Authorization': f'Bearer {API_KEY}'}
@@ -62,6 +68,11 @@ def generate(prompt: str) -> dict[str, Any]:
             text = data['choices'][0]['message']['content']
         except (KeyError, IndexError) as error:
             raise RuntimeError(f'Неожиданный ответ OpenRouter: {data}') from error
+        if data['choices'][0].get('finish_reason') == 'length':
+            raise RuntimeError(
+                f'Ответ обрезан на лимите max_tokens={MAX_TOKENS}; '
+                'увеличьте LLM_MAX_TOKENS.'
+            )
         if not text or not text.strip():
             raise RuntimeError('OpenRouter вернул пустой ответ.')
         try:
