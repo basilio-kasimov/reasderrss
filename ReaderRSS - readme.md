@@ -193,7 +193,7 @@ com.example.newsreader
 ```bash
 cd /opt/reasderrss
 cp .env.example .env            # заполнить DATABASE_URL, OPENROUTER_API_KEY, LLM_MODEL, ADMIN_TOKEN
-docker compose up -d --build
+docker compose --profile worker up -d --build   # --profile обязателен: иначе образ воркера не пересобирается
 docker compose run --rm worker  # ручной прогон пайплайна
 systemctl enable --now news-worker.timer
 ```
@@ -252,7 +252,8 @@ curl -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: applicatio
 
 ### Требуют проверки
 
-- [ ] `run_requested = true` в таблице — убедиться, что `news-worker.timer` жив и прогоны идут.
+- [x] `run_requested = true` в таблице — таймер жив; причина: воркер с 2026-10-04 работал на старом образе (профиль `worker` не пересобирался `up --build`), игнорировал `settings` и ходил в LLM каждые 20 мин. Образ пересобран 2026-11-19.
+- [x] После пересборки воркера тики таймера между прогонами завершаются «интервал 6 ч. не истёк — выход» — подтверждено 2026-11-19.
 - [x] Сохранение `min_sources` из админки — исправлено (newsreader `8dc6e68`, `@JvmSuppressWildcards` в `AdminApi.putSettings`), проверено на устройстве 2026-11-19.
 - [ ] Фактическое срабатывание `SyncWorker` в фоне не подтверждено (учесть усыпление фоновых приложений на Samsung).
 - [ ] Фикс клавиатуры в настройках (`imePadding()` на Scaffold, `adjustResize` в манифесте) — проверить.
