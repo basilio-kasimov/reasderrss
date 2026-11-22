@@ -37,12 +37,6 @@ SEED_FEEDS = {
     'РБК': 'https://rssexport.rbc.ru/rbcnews/news/30/full.rss',
 }
 
-DEFAULT_SETTINGS = {
-    'pipeline_interval_hours': 6,
-    'lookback_hours': 36,
-    'min_sources': 2,
-}
-
 RSS_TIMEOUT = 6
 # После неудачного прогона следующая попытка — не раньше чем через столько минут,
 # чтобы при стабильной ошибке не тратить LLM-кредиты на каждом 20-минутном тике.
@@ -91,11 +85,27 @@ def log(message: str) -> None:
 # ---------- Настройки и ленты из БД ----------
 
 def load_settings(conn: Any) -> dict[str, Any]:
-    settings = dict(DEFAULT_SETTINGS)
-    rows = conn.execute('SELECT key, value FROM settings').fetchall()
-    for row in rows:
-        settings[row['key']] = row['value']
-    return settings
+    # Дефолты и чтение таблицы — в db.py, их использует и API (/meta).
+    return db.load_settings(conn)
+
+
+def cleanup_old_data(conn: Any, days: int) -> None:
+    """Удаляет сюжеты, статьи и записи runs старше days дней.
+
+    story_articles чистится каскадом. Место после удаления переиспользует
+    autovacuum PostgreSQL, ручной VACUUM не нужен.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    deleted = {}
+    for table in ('stories', 'articles', 'runs'):
+        column = 'started_at' if table == 'runs' else 'created_at'
+        cursor = conn.execute(
+            f'DELETE FROM {table} WHERE {column} < %s', (cutoff,),
+        )
+        deleted[table] = cursor.rowcount
+    conn.commit()
+    log(f'Очистка старше {days} дн.: сюжетов {deleted["stories"]}, '
+        f'статей {deleted["articles"]}, прогонов {deleted["runs"]}')
 
 
 def load_feeds(conn: Any) -> dict[str, str]:
@@ -416,6 +426,11 @@ def main() -> None:
             log('[ERROR] Все группы завершились ошибкой — прогон помечен failed.')
         else:
             status = 'success'
+            try:
+                cleanup_old_data(conn, db.retention_days(settings))
+            except Exception as error:
+                conn.rollback()
+                log(f'[WARNING] Очистка старых данных не удалась: {error}')
     except Exception as error:
         status = 'failed'
         log(f'[ERROR] Пайплайн упал: {error}')

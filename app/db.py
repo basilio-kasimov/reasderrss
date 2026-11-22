@@ -1,9 +1,23 @@
 import os
+from typing import Any
 
 import psycopg
 from psycopg.rows import dict_row
 
 DATABASE_URL = os.environ['DATABASE_URL']
+
+# Дефолты параметров пайплайна. Источник правды — таблица settings:
+# значение отсюда действует, пока ключ не записан через PUT /admin/settings.
+DEFAULT_SETTINGS = {
+    'pipeline_interval_hours': 6,
+    'lookback_hours': 36,
+    'min_sources': 4,
+    # Сколько дней хранить сюжеты, статьи и журнал прогонов.
+    'retention_days': 20,
+}
+
+# Меньше нельзя: статьи, ещё лежащие в RSS, загрузились бы повторно как новые.
+MIN_RETENTION_DAYS = 3
 
 SCHEMA = '''
 CREATE TABLE IF NOT EXISTS articles (
@@ -70,6 +84,17 @@ CREATE TABLE IF NOT EXISTS runs (
 
 def connect() -> psycopg.Connection:
     return psycopg.connect(DATABASE_URL, row_factory=dict_row)
+
+
+def load_settings(conn: psycopg.Connection) -> dict[str, Any]:
+    settings = dict(DEFAULT_SETTINGS)
+    for row in conn.execute('SELECT key, value FROM settings').fetchall():
+        settings[row['key']] = row['value']
+    return settings
+
+
+def retention_days(settings: dict[str, Any]) -> int:
+    return max(int(settings['retention_days']), MIN_RETENTION_DAYS)
 
 
 def init_schema(conn: psycopg.Connection) -> None:

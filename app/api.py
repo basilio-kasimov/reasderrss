@@ -152,6 +152,8 @@ def meta(conn: psycopg.Connection = Depends(get_conn)):
         'categories': categories,
         'sources': [serialize(row) for row in sources],
         'last_run_at': serialize(last_run)['finished_at'] if last_run else None,
+        # Клиент удаляет из локального кэша сюжеты старше этого срока.
+        'retention_days': db.retention_days(db.load_settings(conn)),
     }
 
 

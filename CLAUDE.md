@@ -25,8 +25,8 @@
   Запуск `python -m app.pipeline` (systemd `news-worker.timer` на сервере).
 - `app/llm.py` — OpenRouter; `app/db.py` — схема и подключение.
 - `rss_reader.py` — старый standalone-скрипт, предшественник пайплайна; не основной код.
-- Параметры пайплайна (`pipeline_interval_hours`, `lookback_hours`, `min_sources`)
-  живут в таблице `settings`; дефолты — `DEFAULT_SETTINGS` в `pipeline.py`.
+- Параметры пайплайна (`pipeline_interval_hours`, `lookback_hours`, `min_sources`, `retention_days`)
+  живут в таблице `settings`; дефолты — `DEFAULT_SETTINGS` в `app/db.py`.
   `.env` на них не влияет.
 - Прод: VPS, `/opt/reasderrss`, Docker Compose (postgres, api, worker, caddy),
   домен `readerrss.duckdns.org`. Локально в этом окружении сервер не запущен.
