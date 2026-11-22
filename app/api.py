@@ -173,8 +173,9 @@ class FeedPatch(BaseModel):
 
 @app.get('/api/v1/admin/settings', dependencies=[Depends(require_admin)])
 def get_settings(conn: psycopg.Connection = Depends(get_conn)):
-    rows = conn.execute('SELECT key, value FROM settings').fetchall()
-    return {row['key']: row['value'] for row in rows}
+    # Дефолты + переопределения из таблицы: иначе параметр, ещё ни разу
+    # не сохранённый (например, retention_days), в админке был бы пустым.
+    return db.load_settings(conn)
 
 
 @app.put('/api/v1/admin/settings', dependencies=[Depends(require_admin)])
@@ -182,6 +183,12 @@ def put_settings(
     values: dict[str, Any],
     conn: psycopg.Connection = Depends(get_conn),
 ):
+    if 'retention_days' in values:
+        days = values['retention_days']
+        if not isinstance(days, int) or days < db.MIN_RETENTION_DAYS:
+            raise HTTPException(
+                422, f'retention_days — целое число не меньше {db.MIN_RETENTION_DAYS}.',
+            )
     for key, value in values.items():
         conn.execute(
             '''INSERT INTO settings (key, value) VALUES (%s, %s)
