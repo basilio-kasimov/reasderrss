@@ -194,7 +194,7 @@ com.example.newsreader
 ```bash
 cd /opt/reasderrss
 cp .env.example .env            # заполнить DATABASE_URL, OPENROUTER_API_KEY, LLM_MODEL, ADMIN_TOKEN
-docker compose --profile worker up -d --build   # --profile обязателен: иначе образ воркера не пересобирается
+docker compose up -d --build && docker compose build worker   # воркер в профиле worker: up его не пересобирает
 docker compose run --rm worker  # ручной прогон пайплайна
 systemctl enable --now news-worker.timer
 ```

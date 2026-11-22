@@ -31,10 +31,12 @@ Claude Code запущен **на самом прод-сервере** `readerho
 Выкатка после пуша (делает пользователь или я — только с его согласия):
 
 ```bash
-cd /opt/reasderrss && git pull && docker compose --profile worker up -d --build
+cd /opt/reasderrss && git pull && docker compose up -d --build && docker compose build worker
 ```
 
-`--profile worker` обязателен, иначе образ воркера не пересобирается.
+`docker compose build worker` обязателен: воркер в профиле `worker`, и `up --build` его не
+пересобирает. Не использовать `--profile worker up` — он ещё и запускает прогон, который может
+пойти параллельно с тиком таймера.
 
 **Что можно самому, без вопросов** — только чтение: `journalctl -u news-worker.service`,
 `systemctl status`, `docker compose logs`, `SELECT` через `docker compose exec postgres psql -U news -d news`,
