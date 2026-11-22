@@ -9,7 +9,7 @@ import psycopg
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from pydantic import BaseModel
 
-from app import db
+from app import categories, db
 
 ADMIN_TOKEN = os.environ.get('ADMIN_TOKEN', '')
 MAX_LIMIT = 100
@@ -154,6 +154,8 @@ def meta(conn: psycopg.Connection = Depends(get_conn)):
         'last_run_at': serialize(last_run)['finished_at'] if last_run else None,
         # Клиент удаляет из локального кэша сюжеты старше этого срока.
         'retention_days': db.retention_days(db.load_settings(conn)),
+        # Русские названия категорий: клиент показывает их вместо slug.
+        'category_titles': categories.TITLES,
     }
 
 

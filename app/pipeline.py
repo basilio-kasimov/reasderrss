@@ -17,7 +17,7 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import DBSCAN
 
-from app import db, llm
+from app import categories, db, llm
 
 # Используется только для разового засева пустой таблицы feeds.
 # После первого запуска источник правды — таблица, не этот словарь.
@@ -45,12 +45,7 @@ SIMILARITY_THRESHOLD = 0.60
 # Сколько самых свежих статей из окна lookback_hours берётся в группировку.
 # При 200 окно 36 ч фактически сжималось до ~11 ч (за 36 ч ~600 статей).
 MAX_ARTICLES = 1000
-# Категории, которые LLM может присвоить и которые принимаются в ленту.
-# Всё остальное (погода, разные события в одной группе) — other и отклоняется.
-ACCEPTED_CATEGORIES = (
-    'politics', 'finance', 'science_tech', 'sport',
-    'culture', 'incidents', 'celebrity',
-)
+# Категории и их описания — в app/categories.py.
 EMBEDDING_MODEL = 'paraphrase-multilingual-MiniLM-L12-v2'
 HEADERS = {'User-Agent': 'NewsResearchAgent/0.2'}
 # Только для пометки articles.is_sport / sport_words (статистика). Из анализа
@@ -334,11 +329,8 @@ def summarize(group: list[dict[str, Any]]) -> dict[str, Any]:
   "key_points_ru": ["Дополнительный факт 1"],
   "category": "politics"
 }}
-category может быть {', '.join(ACCEPTED_CATEGORIES)} или other:
-politics — политика, выборы, войны, дипломатия; finance — экономика, рынки, компании;
-science_tech — наука, технологии, медицина; sport — спорт;
-culture — кино, музыка, искусство, литература; incidents — катастрофы, аварии, преступления, стихийные бедствия;
-celebrity — светская хроника, личная жизнь знаменитостей; other — всё остальное.
+category — одно из значений:
+{categories.prompt_description()}
 Если материалы относятся к разным событиям, верни same_story=false и category=other.
 Прогнозы погоды и сводки о погоде — всегда category=other.
 Источники: {json.dumps(sources, ensure_ascii=False)}
@@ -347,7 +339,7 @@ celebrity — светская хроника, личная жизнь знам�
     result = llm.generate(prompt)
     category = str(result.get('category', 'other'))
     same_story = bool(result.get('same_story', False))
-    accepted = same_story and category in ACCEPTED_CATEGORIES
+    accepted = same_story and category in categories.ACCEPTED_CATEGORIES
     return {
         'accepted': accepted,
         'title_ru': str(result.get('title_ru', 'Сюжет отклонён')),

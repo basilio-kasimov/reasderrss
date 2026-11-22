@@ -56,6 +56,8 @@ cd /opt/reasderrss && git pull && docker compose up -d --build && docker compose
   фильтр `min_sources` → дедупликация `story_exists` → LLM → `stories`.
   Запуск `python -m app.pipeline` (systemd `news-worker.timer` на сервере).
 - `app/llm.py` — OpenRouter; `app/db.py` — схема и подключение.
+- `app/categories.py` — справочник категорий: описания для промпта, какие принимаются,
+  русские названия для клиента (`/meta` → `category_titles`). Новая категория — одна строка здесь.
 - `rss_reader_old.py` — старый standalone-скрипт, предшественник пайплайна; не используется, оставлен для истории.
 - Параметры пайплайна (`pipeline_interval_hours`, `lookback_hours`, `min_sources`, `retention_days`)
   живут в таблице `settings`; дефолты — `DEFAULT_SETTINGS` в `app/db.py`.
