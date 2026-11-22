@@ -205,7 +205,7 @@ systemctl enable --now news-worker.timer
 
 1. Открыть проект в Android Studio, дождаться Gradle sync.
 2. Build Variants → `adminDebug`.
-3. Подставить адрес сервера в `BASE_URL` (`di/NetworkModule.kt`).
+3. Адрес сервера — `buildConfigField("String", "BASE_URL", …)` в `app/build.gradle.kts` (по умолчанию `https://readerrss.duckdns.org/`).
 4. Запустить на устройстве; в настройках → «Администрирование сервера» → ввести `ADMIN_TOKEN`.
 
 ---
@@ -263,7 +263,7 @@ curl -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: applicatio
 
 - `applicationId` `com.example.*` не примет Google Play — сменить перед публикацией (только в Gradle, код не трогать).
 - Admin-токен хранится в обычном DataStore; для admin-сборки можно перейти на EncryptedSharedPreferences.
-- Base URL зашит константой, а не вынесен в настройки.
+- Адрес сервера задаётся при сборке (`BASE_URL` в Gradle); поля в настройках приложения нет — нужно, только если понадобится переключаться между серверами на телефоне.
 
 ---
 
@@ -305,7 +305,7 @@ curl -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: applicatio
 1. ~~Закрыть пункты из раздела «Требуют проверки»~~ — все закрыты 2026-11-22.
 2. ~~Индикатор устаревания данных в ленте~~ — сделано 2026-11-22 (newsreader `28af17f`): плашка, если успешного прогона не было > 12 ч.
 3. Подготовка к публикации: уникальный `applicationId`, иконка, release-подпись,
-   перенос base URL в настройки.
+   ~~перенос base URL~~ (сделано 2026-11-22: `BASE_URL` в Gradle).
 4. Уведомления о новых сюжетах: FCM + рассылка после прогона при наличии
    Firebase-аккаунта; иначе локальные уведомления из `SyncWorker` (работают без
    Google-сервисов и закрывают большую часть потребности).
