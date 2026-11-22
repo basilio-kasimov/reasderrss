@@ -31,6 +31,37 @@ def _extract_json(text: str) -> dict[str, Any]:
     return json.loads(text)
 
 
+def _tail(value: Any, size: int = 300) -> str:
+    """Последние size символов в одну строку — чтобы увидеть, на чём оборвалось."""
+    if not value:
+        return '—'
+    return repr(str(value)[-size:])
+
+
+def _log_truncated(data: dict[str, Any]) -> None:
+    """Диагностика обрезанного ответа: куда ушли токены и чем кончился текст.
+
+    Если reasoning_tokens близко к лимиту — модель «додумалась» до упора;
+    если в хвосте content повторяется одна фраза — модель зациклилась.
+    """
+    usage = data.get('usage') or {}
+    details = usage.get('completion_tokens_details') or {}
+    message = data['choices'][0].get('message') or {}
+    content = message.get('content') or ''
+    reasoning = message.get('reasoning') or ''
+    print(
+        f'[TRUNCATED] model={data.get("model")} provider={data.get("provider")} '
+        f'prompt_tokens={usage.get("prompt_tokens")} '
+        f'completion_tokens={usage.get("completion_tokens")} '
+        f'reasoning_tokens={details.get("reasoning_tokens")} '
+        f'content_chars={len(content)} reasoning_chars={len(reasoning)}',
+        flush=True,
+    )
+    print(f'[TRUNCATED] content_tail={_tail(content)}', flush=True)
+    if reasoning:
+        print(f'[TRUNCATED] reasoning_tail={_tail(reasoning)}', flush=True)
+
+
 def generate(prompt: str) -> dict[str, Any]:
     payload = {
         'model': MODEL,
@@ -69,10 +100,8 @@ def generate(prompt: str) -> dict[str, Any]:
         except (KeyError, IndexError) as error:
             raise RuntimeError(f'Неожиданный ответ OpenRouter: {data}') from error
         if data['choices'][0].get('finish_reason') == 'length':
-            raise RuntimeError(
-                f'Ответ обрезан на лимите max_tokens={MAX_TOKENS}; '
-                'увеличьте LLM_MAX_TOKENS.'
-            )
+            _log_truncated(data)
+            raise RuntimeError(f'Ответ обрезан на лимите max_tokens={MAX_TOKENS}.')
         if not text or not text.strip():
             raise RuntimeError('OpenRouter вернул пустой ответ.')
         try:
