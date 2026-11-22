@@ -266,7 +266,6 @@ curl -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: applicatio
 - Admin-токен хранится в обычном DataStore; для admin-сборки можно перейти на EncryptedSharedPreferences.
 - Base URL зашит константой, а не вынесен в настройки.
 - Словарь категорий захардкожен в `util/Categories.kt`; новые категории отобразятся слагом.
-- Удаление RSS-лент не реализовано (осознанно — есть вкл/выкл); эскиз `DELETE /admin/feeds/{id}` готов.
 
 ---
 
