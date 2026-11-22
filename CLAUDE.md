@@ -69,8 +69,8 @@ cd /opt/reasderrss && git pull && docker compose up -d --build && docker compose
 
 - Пакет `com.example.newsreader`; flavors `public` и `admin`, для разработки — `adminDebug`.
 - Стек: Compose + Material 3, Hilt, Retrofit + kotlinx.serialization, Room, DataStore, WorkManager.
-- Сетевые интерфейсы: `data/remote/NewsApi.kt`, `data/remote/dto/AdminApi.kt`
-  (пакеты `data.remote` и `remote` исторически разъехались).
+- Сетевые интерфейсы: `data/remote/NewsApi.kt`, `data/remote/AdminApi.kt`; DTO — `data/remote/dto/`
+  (пакеты `com.example.newsreader.data.remote` и `...data.remote.dto`, совпадают с папками).
 - Админка: `ui/admin/AdminScreen.kt`, `ui/admin/AdminViewModel.kt`.
 - Версии: AGP 8.13, Gradle 9.5 (9.6 несовместим). Сборка идёт в Android Studio на компьютере
   пользователя (он подтягивает изменения с GitHub); на сервере Android SDK нет — собрать

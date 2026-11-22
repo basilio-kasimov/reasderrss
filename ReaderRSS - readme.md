@@ -155,7 +155,7 @@ DataStore, WorkManager, Navigation Compose, Chrome Custom Tabs.
 com.example.newsreader
 ├── NewsApplication.kt      Hilt, HiltWorkerFactory, перепланирование фонового синка
 ├── MainActivity.kt         NavHost: feed → story/{id}, settings, admin
-├── data/remote | remote    NewsApi, AdminApi, dto/   (пакеты исторически разъехались)
+├── data/remote             NewsApi, AdminApi, dto/
 ├── local                   StoryEntity, StoryDao, Converters, NewsDatabase
 ├── repository              NewsRepository: Room + инкрементальный sync по since_id
 ├── settings                SettingsRepository (DataStore): фильтры, интервал, admin-token
@@ -261,7 +261,6 @@ curl -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: applicatio
 
 ### Технический долг
 
-- Пакеты `data.remote` и `remote` привести к единому виду (Refactor → Move).
 - `applicationId` `com.example.*` не примет Google Play — сменить перед публикацией (только в Gradle, код не трогать).
 - Admin-токен хранится в обычном DataStore; для admin-сборки можно перейти на EncryptedSharedPreferences.
 - Base URL зашит константой, а не вынесен в настройки.
