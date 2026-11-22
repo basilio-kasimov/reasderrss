@@ -15,6 +15,10 @@ TIMEOUT = 180
 # Наш ответ — JSON с заголовком, 2–4 абзацами и фактами, это ~1–2k токенов;
 # запас нужен на случай, если модель «думает» перед ответом.
 MAX_TOKENS = int(os.environ.get('LLM_MAX_TOKENS', '4000'))
+# Потолок токенов на «размышления» reasoning-моделей (qwen3 и др.) внутри MAX_TOKENS.
+# Без него модель иногда думает до упора и не успевает дать ответ.
+# 0 — размышления выключены совсем.
+REASONING_MAX_TOKENS = int(os.environ.get('LLM_REASONING_MAX_TOKENS', '2000'))
 MAX_RETRIES = 4
 
 
@@ -68,6 +72,10 @@ def generate(prompt: str) -> dict[str, Any]:
         'messages': [{'role': 'user', 'content': prompt}],
         'temperature': 0.1,
         'max_tokens': MAX_TOKENS,
+        'reasoning': (
+            {'max_tokens': REASONING_MAX_TOKENS} if REASONING_MAX_TOKENS > 0
+            else {'enabled': False}
+        ),
         'response_format': {'type': 'json_object'},
     }
     headers = {'Authorization': f'Bearer {API_KEY}'}
