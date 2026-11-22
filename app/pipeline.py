@@ -42,7 +42,9 @@ RSS_TIMEOUT = 6
 # чтобы при стабильной ошибке не тратить LLM-кредиты на каждом 20-минутном тике.
 FAILED_RETRY_MINUTES = 60
 SIMILARITY_THRESHOLD = 0.60
-MAX_ARTICLES = 200
+# Сколько самых свежих статей из окна lookback_hours берётся в группировку.
+# При 200 окно 36 ч фактически сжималось до ~11 ч (за 36 ч ~600 статей).
+MAX_ARTICLES = 1000
 EMBEDDING_MODEL = 'paraphrase-multilingual-MiniLM-L12-v2'
 HEADERS = {'User-Agent': 'NewsResearchAgent/0.2'}
 SPORT_WORDS = (
