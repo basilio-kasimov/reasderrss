@@ -16,6 +16,36 @@
 почти всегда касаются `/root/newsreader` — искать там, а не только в бэкенде.
 Удобный запуск: `claude --add-dir /root/newsreader`.
 
+## Где я работаю: это прод-сервер
+
+Claude Code запущен **на самом прод-сервере** `readerhost`. На нём две копии бэкенда:
+
+| Папка | Роль |
+|---|---|
+| `~/reasderrss` (`/root/reasderrss`) | **dev-копия**: здесь правлю код, коммичу, `git push` |
+| `/opt/reasderrss` | **прод-копия**: `.env` с секретами, отсюда работают контейнеры и `news-worker.timer`; обновляется только `git pull` |
+
+Обе копии нужны — ни одну не удалять. `~/reasderrss` без `.env`, поэтому
+`docker compose` из неё ругается на `POSTGRES_*` — команды Compose запускать из `/opt/reasderrss`.
+
+Выкатка после пуша (делает пользователь или я — только с его согласия):
+
+```bash
+cd /opt/reasderrss && git pull && docker compose --profile worker up -d --build
+```
+
+`--profile worker` обязателен, иначе образ воркера не пересобирается.
+
+**Что можно самому, без вопросов** — только чтение: `journalctl -u news-worker.service`,
+`systemctl status`, `docker compose logs`, `SELECT` через `docker compose exec postgres psql -U news -d news`,
+`curl` к `/health` и `/api/v1/meta`. Проверки после прогона смотреть самому, а не просить логи.
+
+**Только с согласия пользователя** — всё, что меняет прод: `git pull` в `/opt`, сборка и
+перезапуск контейнеров, `INSERT/UPDATE/DELETE` и `VACUUM` в БД, правка `.env`, `systemctl`-команды
+кроме `status`. Содержимое `.env` не выводить и никуда не отправлять.
+
+Время: `journalctl` — по Москве, поля `TIMESTAMPTZ` в `psql` — в UTC.
+
 ## Бэкенд
 
 - `app/api.py` — FastAPI: публичные `/api/v1/stories`, `/api/v1/meta`, админские
@@ -28,8 +58,8 @@
 - Параметры пайплайна (`pipeline_interval_hours`, `lookback_hours`, `min_sources`, `retention_days`)
   живут в таблице `settings`; дефолты — `DEFAULT_SETTINGS` в `app/db.py`.
   `.env` на них не влияет.
-- Прод: VPS, `/opt/reasderrss`, Docker Compose (postgres, api, worker, caddy),
-  домен `readerrss.duckdns.org`. Локально в этом окружении сервер не запущен.
+- Прод: VPS `readerhost`, `/opt/reasderrss`, Docker Compose (postgres, api, worker, caddy),
+  домен `readerrss.duckdns.org`. Подробнее — раздел «Где я работаю» выше.
 
 ## Android-клиент
 
@@ -38,8 +68,10 @@
 - Сетевые интерфейсы: `data/remote/NewsApi.kt`, `data/remote/dto/AdminApi.kt`
   (пакеты `data.remote` и `remote` исторически разъехались).
 - Админка: `ui/admin/AdminScreen.kt`, `ui/admin/AdminViewModel.kt`.
-- Версии: AGP 8.13, Gradle 9.5 (9.6 несовместим). Сборка обычно идёт в Android Studio
-  у пользователя; здесь собрать и проверить на устройстве нельзя — так и говорить.
+- Версии: AGP 8.13, Gradle 9.5 (9.6 несовместим). Сборка идёт в Android Studio на компьютере
+  пользователя (он подтягивает изменения с GitHub); на сервере Android SDK нет — собрать
+  и проверить на устройстве нельзя, так и говорить. Поэтому Android-правки пользователь
+  проверяет только после коммита и пуша.
 - Ловушка Retrofit: generic-параметры `@Body` вида `Map<String, JsonElement>` требуют
   `@JvmSuppressWildcards`, иначе Retrofit отвергает метод до отправки запроса.
 
