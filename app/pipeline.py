@@ -44,6 +44,9 @@ DEFAULT_SETTINGS = {
 }
 
 RSS_TIMEOUT = 6
+# После неудачного прогона следующая попытка — не раньше чем через столько минут,
+# чтобы при стабильной ошибке не тратить LLM-кредиты на каждом 20-минутном тике.
+FAILED_RETRY_MINUTES = 60
 SIMILARITY_THRESHOLD = 0.60
 MAX_ARTICLES = 200
 EMBEDDING_MODEL = 'paraphrase-multilingual-MiniLM-L12-v2'
@@ -136,12 +139,27 @@ def should_run(conn: Any, interval_hours: float) -> bool:
         'ORDER BY id DESC LIMIT 1',
     ).fetchone()
     if row is None or row['finished_at'] is None:
-        return True
+        return retry_allowed(conn)
     elapsed = datetime.now(timezone.utc) - row['finished_at']
     if elapsed >= timedelta(hours=float(interval_hours)):
-        return True
+        return retry_allowed(conn)
     log(f'С последнего запуска прошло {elapsed}, интервал '
         f'{interval_hours} ч. не истёк — выход.')
+    return False
+
+
+def retry_allowed(conn: Any) -> bool:
+    """Не даёт повторять неудачный прогон чаще FAILED_RETRY_MINUTES."""
+    row = conn.execute(
+        'SELECT status, finished_at FROM runs ORDER BY id DESC LIMIT 1',
+    ).fetchone()
+    if row is None or row['status'] != 'failed' or row['finished_at'] is None:
+        return True
+    elapsed = datetime.now(timezone.utc) - row['finished_at']
+    if elapsed >= timedelta(minutes=FAILED_RETRY_MINUTES):
+        return True
+    log(f'Прошлый прогон неудачен {elapsed} назад, повтор не раньше чем через '
+        f'{FAILED_RETRY_MINUTES} мин. — выход.')
     return False
 
 
@@ -391,7 +409,13 @@ def main() -> None:
                 continue
             save_story(conn, hash_value, story, group)
             stats['accepted' if story['accepted'] else 'rejected'] += 1
-        status = 'success'
+        if stats['errors'] and not stats['accepted'] + stats['rejected']:
+            # Ни одна группа не обработана (например, 402 от OpenRouter):
+            # прогон не засчитываем, чтобы не ждать следующего полные 6 часов.
+            status = 'failed'
+            log('[ERROR] Все группы завершились ошибкой — прогон помечен failed.')
+        else:
+            status = 'success'
     except Exception as error:
         status = 'failed'
         log(f'[ERROR] Пайплайн упал: {error}')
