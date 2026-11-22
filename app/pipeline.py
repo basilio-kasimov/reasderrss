@@ -45,8 +45,17 @@ SIMILARITY_THRESHOLD = 0.60
 # Сколько самых свежих статей из окна lookback_hours берётся в группировку.
 # При 200 окно 36 ч фактически сжималось до ~11 ч (за 36 ч ~600 статей).
 MAX_ARTICLES = 1000
+# Категории, которые LLM может присвоить и которые принимаются в ленту.
+# Всё остальное (погода, разные события в одной группе) — other и отклоняется.
+ACCEPTED_CATEGORIES = (
+    'politics', 'finance', 'science_tech', 'sport',
+    'culture', 'incidents', 'celebrity',
+)
 EMBEDDING_MODEL = 'paraphrase-multilingual-MiniLM-L12-v2'
 HEADERS = {'User-Agent': 'NewsResearchAgent/0.2'}
+# Только для пометки articles.is_sport / sport_words (статистика). Из анализа
+# спорт больше не исключается: это категория sport, скрывается в приложении.
+# Слова вроде league/match давали ложные срабатывания на политике.
 SPORT_WORDS = (
     'sport', 'sports', 'football', 'soccer', 'basketball', 'baseball',
     'hockey', 'tennis', 'golf', 'cricket', 'rugby', 'boxing', 'mma',
@@ -257,7 +266,7 @@ def recent_articles(conn: Any, cutoff: datetime) -> list[dict[str, Any]]:
     cursor = conn.execute(
         '''SELECT id, source, title, summary, link, published_at
            FROM articles
-           WHERE published_at >= %s AND NOT is_sport
+           WHERE published_at >= %s
            ORDER BY published_at DESC
            LIMIT %s''',
         (cutoff, MAX_ARTICLES),
@@ -325,15 +334,20 @@ def summarize(group: list[dict[str, Any]]) -> dict[str, Any]:
   "key_points_ru": ["Дополнительный факт 1"],
   "category": "politics"
 }}
-category может быть politics, finance, science_tech или other.
-Если материалы относятся к разным событиям или к спорту, верни same_story=false и category=other.
+category может быть {', '.join(ACCEPTED_CATEGORIES)} или other:
+politics — политика, выборы, войны, дипломатия; finance — экономика, рынки, компании;
+science_tech — наука, технологии, медицина; sport — спорт;
+culture — кино, музыка, искусство, литература; incidents — катастрофы, аварии, преступления, стихийные бедствия;
+celebrity — светская хроника, личная жизнь знаменитостей; other — всё остальное.
+Если материалы относятся к разным событиям, верни same_story=false и category=other.
+Прогнозы погоды и сводки о погоде — всегда category=other.
 Источники: {json.dumps(sources, ensure_ascii=False)}
 Материалы: {json.dumps(materials, ensure_ascii=False)}'''
     log(f'Запрос LLM: {len(sources)} источников, {len(group)} статей')
     result = llm.generate(prompt)
     category = str(result.get('category', 'other'))
     same_story = bool(result.get('same_story', False))
-    accepted = same_story and category in {'politics', 'finance', 'science_tech'}
+    accepted = same_story and category in ACCEPTED_CATEGORIES
     return {
         'accepted': accepted,
         'title_ru': str(result.get('title_ru', 'Сюжет отклонён')),
