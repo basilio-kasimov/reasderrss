@@ -20,6 +20,12 @@ MAX_TOKENS = int(os.environ.get('LLM_MAX_TOKENS', '4000'))
 # 0 — размышления выключены совсем.
 REASONING_MAX_TOKENS = int(os.environ.get('LLM_REASONING_MAX_TOKENS', '2000'))
 MAX_RETRIES = 4
+# Провайдеры OpenRouter, которых не используем (через запятую).
+# ModelRun игнорировал JSON-режим и после ответа писал текст по кругу до лимита.
+IGNORE_PROVIDERS = [
+    p.strip() for p in os.environ.get('LLM_IGNORE_PROVIDERS', 'ModelRun').split(',')
+    if p.strip()
+]
 
 
 class ModelUnavailableError(RuntimeError):
@@ -33,6 +39,22 @@ def _extract_json(text: str) -> dict[str, Any]:
     if match:
         text = match.group(1).strip()
     return json.loads(text)
+
+
+def _first_json_object(text: str) -> dict[str, Any] | None:
+    """Первый целый JSON-объект в тексте или None.
+
+    Нужен для обрезанных ответов: модель выдала корректный JSON, а потом
+    продолжила писать текст до лимита.
+    """
+    start = text.find('{')
+    if start < 0:
+        return None
+    try:
+        obj, _ = json.JSONDecoder().raw_decode(text[start:])
+    except json.JSONDecodeError:
+        return None
+    return obj if isinstance(obj, dict) else None
 
 
 def _tail(value: Any, size: int = 300) -> str:
@@ -77,6 +99,8 @@ def generate(prompt: str) -> dict[str, Any]:
             else {'enabled': False}
         ),
         'response_format': {'type': 'json_object'},
+        # Только провайдеры, поддерживающие все параметры запроса, без исключённых.
+        'provider': {'require_parameters': True, 'ignore': IGNORE_PROVIDERS},
     }
     headers = {'Authorization': f'Bearer {API_KEY}'}
     delay = 10
@@ -109,6 +133,11 @@ def generate(prompt: str) -> dict[str, Any]:
             raise RuntimeError(f'Неожиданный ответ OpenRouter: {data}') from error
         if data['choices'][0].get('finish_reason') == 'length':
             _log_truncated(data)
+            salvaged = _first_json_object(text or '')
+            if salvaged is not None:
+                print('[TRUNCATED] в начале ответа целый JSON — используем его, '
+                      'хвост отброшен', flush=True)
+                return salvaged
             raise RuntimeError(f'Ответ обрезан на лимите max_tokens={MAX_TOKENS}.')
         if not text or not text.strip():
             raise RuntimeError('OpenRouter вернул пустой ответ.')

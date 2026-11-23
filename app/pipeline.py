@@ -43,8 +43,9 @@ RSS_TIMEOUT = 6
 FAILED_RETRY_MINUTES = 60
 SIMILARITY_THRESHOLD = 0.60
 # Сколько самых свежих статей из окна lookback_hours берётся в группировку.
-# При 200 окно 36 ч фактически сжималось до ~11 ч (за 36 ч ~600 статей).
-MAX_ARTICLES = 1000
+# При 200 окно 36 ч фактически сжималось до ~11 ч (за 36 ч ~600 статей);
+# с 18 лентами за 36 ч набирается ~1000+.
+MAX_ARTICLES = 1500
 # Категории и их описания — в app/categories.py.
 EMBEDDING_MODEL = 'paraphrase-multilingual-MiniLM-L12-v2'
 HEADERS = {'User-Agent': 'NewsResearchAgent/0.2'}
@@ -332,7 +333,9 @@ def summarize(group: list[dict[str, Any]]) -> dict[str, Any]:
 category — одно из значений:
 {categories.prompt_description()}
 Если материалы относятся к разным событиям, верни same_story=false и category=other.
-Прогнозы погоды и сводки о погоде — всегда category=other.
+Если материалы описывают одно событие, выбери для него самую подходящую категорию из списка;
+other для одного события ставь только для прогнозов и сводок погоды или если не подходит ни одна.
+Например: гибель людей при крушении лодки — incidents; фильм о жизни члена королевской семьи — celebrity.
 Источники: {json.dumps(sources, ensure_ascii=False)}
 Материалы: {json.dumps(materials, ensure_ascii=False)}'''
     log(f'Запрос LLM: {len(sources)} источников, {len(group)} статей')
