@@ -4,6 +4,7 @@
 отправленный запрос и возвращает заготовленный ответ.
 """
 import json
+import os
 
 import httpx
 import pytest
@@ -47,6 +48,13 @@ def openrouter(monkeypatch):
 
 
 # ---------- Что уходит в OpenRouter ----------
+
+def test_default_model_is_current():
+    # Регресс: без LLM_MODEL код брал бесплатную qwen-2.5-72b:free, которая
+    # с начала ноября 2026 не отвечала. В тестовом окружении LLM_MODEL не задан.
+    assert 'LLM_MODEL' not in os.environ
+    assert llm.MODEL == 'qwen/qwen3.8-27b'
+
 
 def test_request_has_limits_and_provider_filter(openrouter):
     openrouter['responses'].append(FakeResponse(data=answer('{"ok": true}')))

@@ -8,7 +8,10 @@ import httpx
 
 OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 API_KEY = os.environ['OPENROUTER_API_KEY']
-MODEL = os.environ.get('LLM_MODEL', 'qwen/qwen-2.5-72b-instruct:free')
+# Модель по умолчанию — та же, что на проде; переопределяется LLM_MODEL в .env.
+# (Прежний дефолт qwen-2.5-72b-instruct:free с ноября 2026 не отвечал.)
+DEFAULT_MODEL = 'qwen/qwen3.8-27b'
+MODEL = os.environ.get('LLM_MODEL', DEFAULT_MODEL)
 TIMEOUT = 180
 # Потолок длины ответа модели в токенах. Без него OpenRouter резервирует под ответ
 # весь контекст модели (~131k) и отвечает 402, если на балансе меньше.

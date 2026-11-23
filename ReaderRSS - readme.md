@@ -147,7 +147,7 @@ Sky News; Германия — Deutsche Welle, Tagesschau (нем.); Франц�
 | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | `news`, `news`, … | контейнер PostgreSQL |
 | `DATABASE_URL` | `postgresql://news:…@postgres:5432/news` | подключение пайплайна и API |
 | `OPENROUTER_API_KEY` | … | ключ OpenRouter |
-| `LLM_MODEL` | `qwen/qwen3.8-27b` | модель |
+| `LLM_MODEL` | `qwen/qwen3.8-27b` | модель (тот же дефолт в коде, `DEFAULT_MODEL` в `app/llm.py`) |
 | `ADMIN_TOKEN` | … | Bearer-токен админского API |
 | `LLM_MAX_TOKENS` | `8000` на проде (дефолт 4000) | потолок ответа модели |
 | `LLM_REASONING_MAX_TOKENS` | дефолт 2000 | потолок размышлений; `0` — выключить |
