@@ -274,6 +274,20 @@ systemctl enable --now news-worker.timer
 3. Адрес сервера — `buildConfigField("String", "BASE_URL", …)` в `app/build.gradle.kts` (по умолчанию `https://readerrss.duckdns.org/`).
 4. Запустить на устройстве; в настройках → «Администрирование сервера» → ввести `ADMIN_TOKEN`.
 
+### Тесты (сервер)
+
+```bash
+cd ~/reasderrss && scripts/run_tests.sh          # все тесты
+scripts/run_tests.sh tests/test_smoke.py -v       # один файл
+```
+
+Запуск на одноразовой инфраструктуре: временный PostgreSQL (данные в памяти) и
+контейнер из образа `reasderrss-test` (`Dockerfile.test` = образ воркера + pytest
+из `requirements-dev.txt`). После прогона всё удаляется; прод-контейнеры, том
+`pgdata`, `.env` и таймер не затрагиваются. Настоящих запросов к LLM тесты не делают.
+Код берётся из папки, где запущен скрипт; зависимости — из образа воркера, поэтому
+новую библиотеку в `requirements.txt` сначала нужно выкатить.
+
 ---
 
 ## Эксплуатация и диагностика

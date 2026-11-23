@@ -1,0 +1,7 @@
+# Зависимости только для тестов (ставятся в образ reasderrss-test, см. Dockerfile.test).
+# В рабочий образ не попадают. Остальное (fastapi, httpx, psycopg, sentence-transformers…)
+# и packaging уже есть в образе воркера — их не закрепляем, чтобы тесты шли на тех же
+# версиях, что и прод.
+pytest==8.3.4
+pluggy==1.7.0
+iniconfig==2.3.1

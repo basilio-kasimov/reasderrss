@@ -1,0 +1,11 @@
+# Образ для тестов: образ воркера + pytest.
+# Собирается автоматически из scripts/run_tests.sh. Благодаря кэшу слоёв обычно
+# собирается мгновенно и ничего не скачивает; пересобирается сам, когда меняется
+# образ воркера (после выкатки) или requirements-dev.txt.
+# Код проекта в образ не копируется — монтируется при запуске.
+ARG BASE_IMAGE=reasderrss-worker
+FROM ${BASE_IMAGE}
+
+COPY requirements-dev.txt /tmp/requirements-dev.txt
+RUN pip install --no-cache-dir --disable-pip-version-check --root-user-action=ignore \
+        -r /tmp/requirements-dev.txt
