@@ -191,7 +191,7 @@ OpenRouter и `skipped_known` в журнале запусков.
 
 ### Среда
 
-- Android Studio, проект `newsreader`, пакет `com.example.newsreader`
+- Android Studio, проект `newsreader`; `applicationId` `io.github.basilio_kasimov.newsreader`, пакеты кода (`namespace`) — `com.example.newsreader`
 - minSdk 26, targetSdk/compileSdk — актуальные
 - Kotlin 2.x, AGP 8.13, **Gradle 9.5** (9.6 несовместим с AGP 8.x)
 - `gradle.properties`: `android.useAndroidX=true`, `org.gradle.jvmargs=-Xmx4096m`
@@ -205,8 +205,8 @@ DataStore, WorkManager, Navigation Compose, Chrome Custom Tabs.
 
 | Flavor | applicationId | Название под иконкой | Особенности |
 |---|---|---|---|
-| `public` | `com.example.newsreader` | «Новости мира» | для публикации; код админ-входа не активен |
-| `admin` | `com.example.newsreader.admin` | «Новости мира (админ)» | `BuildConfig.ADMIN_FEATURES = true`, вход в админ-раздел |
+| `public` | `io.github.basilio_kasimov.newsreader` | «Новости мира» | для публикации; код админ-входа не активен |
+| `admin` | `io.github.basilio_kasimov.newsreader.admin` | «Новости мира (админ)» | `BuildConfig.ADMIN_FEATURES = true`, вход в админ-раздел |
 
 Название — `app_name` в `app/src/main/res/values/strings.xml`; для `admin` его перекрывает
 `app/src/admin/res/values/strings.xml`.
@@ -395,13 +395,13 @@ curl -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: applicatio
 - [x] Сохранение `min_sources` из админки — исправлено (newsreader `8dc6e68`, `@JvmSuppressWildcards` в `AdminApi.putSettings`), проверено на устройстве 2026-11-19.
 - [x] `SyncWorker` срабатывает в фоне — подтверждено 2026-11-22 (тест в авиарежиме). До `b9a3ec9` (2026-11-18) воркер не мог быть создан. **На Samsung приложение нужно исключить из «спящих»** (Батарея → Ограничения фонового использования), иначе синк не идёт.
 - [ ] Подписи «N мин назад» обновляются сами (`rememberNow`): после пары часов в фоне лента при открытии показывает верное «обновлено N ч назад», а не «только что» (2026-11-25).
-- [x] Admin-токен зашифрован (2026-11-25): после обновления админка открывается без повторного ввода токена (старый открытый токен переносится сам) — подтверждено на устройстве 2026-11-25; в файле DataStore (`adb shell run-as … cat files/datastore/user_settings.preferences_pb`) только `admin_token_enc`, значение длиннее исходного токена, открытого токена нет. Не проверено отдельно: «Выйти» и новый вход.
+- [x] Admin-токен зашифрован (2026-11-25): после обновления админка открывается без повторного ввода токена (старый открытый токен переносится сам) — подтверждено на устройстве 2026-11-25; в файле DataStore (`adb shell run-as <applicationId> cat files/datastore/user_settings.preferences_pb`) только `admin_token_enc`, значение длиннее исходного токена, открытого токена нет. Не проверено отдельно: «Выйти» и новый вход.
 - [ ] Release-сборка (2026-11-25, подпись через `keystore.properties`, R8): `publicRelease` собрана, установлена, на устройстве выглядит и работает как debug — подтверждено 2026-11-25. Осталось: `adminRelease` — админка (сохранение настроек, ленты, запуск прогона); фоновый синк в release.
+- [ ] `applicationId` → `io.github.basilio_kasimov.newsreader` (2026-11-25): обе сборки переустановлены, лента, настройки, админка, фоновый синк работают.
 - [x] Фикс клавиатуры в настройках и админке (`imePadding()` на Scaffold, `adjustResize` в манифесте) — проверено на устройстве 2026-11-19.
 
 ### Технический долг
 
-- `applicationId` `com.example.*` не примет Google Play — сменить перед публикацией (только в Gradle, код не трогать).
 - Адрес сервера задаётся при сборке (`BASE_URL` в Gradle); поля в настройках приложения нет — нужно, только если понадобится переключаться между серверами на телефоне.
 
 ---

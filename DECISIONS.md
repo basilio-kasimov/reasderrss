@@ -7,6 +7,17 @@
 
 ---
 
+## 2026-11-25 — `applicationId` `io.github.basilio_kasimov.newsreader`, пакеты кода прежние
+
+**Проблема.** `com.example.*` Google Play не принимает; после первой публикации
+`applicationId` сменить нельзя.
+**Решение.** `applicationId = io.github.basilio_kasimov.newsreader` (admin — `.admin`),
+`namespace` и пакеты кода остаются `com.example.newsreader`.
+**Почему.** Сменили до публикации, пока цена — одна переустановка на своём телефоне.
+`io.github.<логин>` — адрес, который принадлежит владельцу аккаунта GitHub, без покупки домена.
+Переименование пакетов кода затронуло бы все файлы без пользы: Play видит только
+`applicationId`.
+
 ## 2026-11-25 — Admin-токен шифруется ключом из Android Keystore
 
 **Проблема.** Токен лежал в DataStore открытым текстом — и в файле приложения, и в облачной

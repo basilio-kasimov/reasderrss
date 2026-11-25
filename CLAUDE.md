@@ -71,7 +71,8 @@ PostgreSQL и сеть `readerrss-test-*` и сам их удаляет; про�
 
 ## Android-клиент
 
-- Пакет `com.example.newsreader`; flavors `public` и `admin`, для разработки — `adminDebug`.
+- `applicationId` `io.github.basilio_kasimov.newsreader` (admin — `.admin`), пакеты кода (`namespace`) —
+  `com.example.newsreader`; flavors `public` и `admin`, для разработки — `adminDebug`.
 - Стек: Compose + Material 3, Hilt, Retrofit + kotlinx.serialization, Room, DataStore, WorkManager.
 - Сетевые интерфейсы: `data/remote/NewsApi.kt`, `data/remote/AdminApi.kt`; DTO — `data/remote/dto/`
   (пакеты `com.example.newsreader.data.remote` и `...data.remote.dto`, совпадают с папками).
