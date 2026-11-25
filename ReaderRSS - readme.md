@@ -294,6 +294,23 @@ systemctl enable --now news-worker.timer
 3. Адрес сервера — `buildConfigField("String", "BASE_URL", …)` в `app/build.gradle.kts` (по умолчанию `https://readerrss.duckdns.org/`).
 4. Запустить на устройстве; в настройках → «Администрирование сервера» → ввести `ADMIN_TOKEN`.
 
+**Release-сборка с подписью.**
+
+1. Один раз создать ключ: Build → Generate Signed App Bundle / APK → APK → Create new…
+   Файл `.jks` положить, например, в `keys/` в корне проекта. Ключ и пароли хранить отдельно
+   (менеджер паролей + резервная копия файла): обновления подписываются **тем же** ключом,
+   иначе телефон не поставит их поверх старой версии.
+2. Скопировать `keystore.properties.example` в `keystore.properties` и заполнить путь,
+   пароли и alias. `keystore.properties`, `*.jks`, `*.keystore` — в `.gitignore`.
+3. Build Variants → `publicRelease` (или `adminRelease`) → Build → Build APK(s).
+   APK — в `app/build/outputs/apk/<flavor>/release/`. Терминал: `.\gradlew assemblePublicRelease`.
+
+Без `keystore.properties` release собирается неподписанным (`app/build.gradle.kts`,
+`signingConfigs`), debug-сборки от этого не зависят. Release сжимается R8
+(`isMinifyEnabled`); правила — `app/proguard-rules.pro`, остальное приносят библиотеки.
+Первую release-сборку проверить на устройстве целиком: R8 может сломать то, что работает
+в debug (рефлексия Retrofit и сериализации).
+
 ### Тесты (сервер)
 
 ```bash
@@ -379,6 +396,7 @@ curl -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: applicatio
 - [x] `SyncWorker` срабатывает в фоне — подтверждено 2026-11-22 (тест в авиарежиме). До `b9a3ec9` (2026-11-18) воркер не мог быть создан. **На Samsung приложение нужно исключить из «спящих»** (Батарея → Ограничения фонового использования), иначе синк не идёт.
 - [ ] Подписи «N мин назад» обновляются сами (`rememberNow`): после пары часов в фоне лента при открытии показывает верное «обновлено N ч назад», а не «только что» (2026-11-25).
 - [x] Admin-токен зашифрован (2026-11-25): после обновления админка открывается без повторного ввода токена (старый открытый токен переносится сам) — подтверждено на устройстве 2026-11-25; в файле DataStore (`adb shell run-as … cat files/datastore/user_settings.preferences_pb`) только `admin_token_enc`, значение длиннее исходного токена, открытого токена нет. Не проверено отдельно: «Выйти» и новый вход.
+- [ ] Release-сборка (2026-11-25, подпись через `keystore.properties`, R8): собирается, ставится, лента грузится, детали сюжета открываются, в `adminRelease` работает админка (сохранение настроек, ленты, запуск прогона).
 - [x] Фикс клавиатуры в настройках и админке (`imePadding()` на Scaffold, `adjustResize` в манифесте) — проверено на устройстве 2026-11-19.
 
 ### Технический долг
