@@ -229,12 +229,14 @@ com.example.newsreader
 └── ui/feed, ui/story, ui/settings, ui/admin
 ```
 
-**Иконка.** Исходник — `art/icon_source.png` (2048×2048). Адаптивная иконка
-(`mipmap-anydpi/ic_launcher*.xml`): фон — цвет `ic_launcher_background` (#002B3F), передний
-слой — `mipmap-*/ic_launcher_foreground.webp` (вся картинка на 108dp, в видимые 72dp
-попадают глобус и надпись). Растровых иконок старого образца нет — при `minSdk 26` они не
-используются; монохромного слоя для тематических иконок Android 13+ тоже нет.
-Иконка для Google Play — `app/src/main/ic_launcher-playstore.png` (512×512).
+**Иконка.** Исходник — `art/icon_source.png` (2048×2048, плитка на бежевом фоне).
+Адаптивная иконка (`mipmap-anydpi/ic_launcher*.xml`): передний слой
+`mipmap-*/ic_launcher_foreground.webp` — внутренняя часть плитки без бежевого фона и
+скруглений, вставленная в вертикальный градиент её цвета; глобус с лентой уменьшен так,
+чтобы целиком попадать в круг 70dp. Фон — цвет `ic_launcher_background` (#0F8790), под
+непрозрачным слоем не виден. Растровых иконок старого образца нет — при `minSdk 26` они
+не используются; монохромного слоя для тематических иконок Android 13+ тоже нет.
+Иконка для Google Play — `app/src/main/ic_launcher-playstore.png` (512×512, видимая зона 72dp).
 Новая иконка: заменить исходник и пересоздать слои через Image Asset Studio
 (Resource Manager → + → Image Asset → Launcher Icons, слой Image, Resize ≈ 100 %).
 
