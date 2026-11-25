@@ -221,7 +221,8 @@ com.example.newsreader
 ├── local                   StoryEntity, StoryDao, Converters, NewsDatabase
 ├── repository              NewsRepository: Room + инкрементальный sync по since_id
 ├── settings                SettingsRepository (DataStore): фильтры, глубина ленты, интервал,
-│                           admin-token, время синка, last_run_at и названия категорий с сервера
+│                           admin-token (зашифрован, TokenCipher), время синка, last_run_at
+│                           и названия категорий с сервера; TokenCipher — AES-GCM ключом из Android Keystore
 ├── sync                    SyncWorker, SyncScheduler (периодика, constraint CONNECTED)
 ├── di                      NetworkModule (таймауты 10/20/30 с), DatabaseModule
 ├── util                    userMessage, timeAgo / millisAgo / clockTime / dateTime,
@@ -374,12 +375,12 @@ curl -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: applicatio
 - [x] Сохранение `min_sources` из админки — исправлено (newsreader `8dc6e68`, `@JvmSuppressWildcards` в `AdminApi.putSettings`), проверено на устройстве 2026-11-19.
 - [x] `SyncWorker` срабатывает в фоне — подтверждено 2026-11-22 (тест в авиарежиме). До `b9a3ec9` (2026-11-18) воркер не мог быть создан. **На Samsung приложение нужно исключить из «спящих»** (Батарея → Ограничения фонового использования), иначе синк не идёт.
 - [ ] Подписи «N мин назад» обновляются сами (`rememberNow`): после пары часов в фоне лента при открытии показывает верное «обновлено N ч назад», а не «только что» (2026-11-25).
+- [ ] Admin-токен зашифрован (2026-11-25): после обновления админка открывается без повторного ввода токена (старый открытый токен переносится сам); «Выйти» и новый вход работают.
 - [x] Фикс клавиатуры в настройках и админке (`imePadding()` на Scaffold, `adjustResize` в манифесте) — проверено на устройстве 2026-11-19.
 
 ### Технический долг
 
 - `applicationId` `com.example.*` не примет Google Play — сменить перед публикацией (только в Gradle, код не трогать).
-- Admin-токен хранится в обычном DataStore; для admin-сборки можно перейти на EncryptedSharedPreferences.
 - Адрес сервера задаётся при сборке (`BASE_URL` в Gradle); поля в настройках приложения нет — нужно, только если понадобится переключаться между серверами на телефоне.
 
 ---
