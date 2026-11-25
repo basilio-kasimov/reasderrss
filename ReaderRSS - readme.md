@@ -203,10 +203,13 @@ DataStore, WorkManager, Navigation Compose, Chrome Custom Tabs.
 
 ### Сборки (product flavors)
 
-| Flavor | applicationId | Особенности |
-|---|---|---|
-| `public` | `com.example.newsreader` | для публикации; код админ-входа не активен |
-| `admin` | `com.example.newsreader.admin` | `BuildConfig.ADMIN_FEATURES = true`, вход в админ-раздел |
+| Flavor | applicationId | Название под иконкой | Особенности |
+|---|---|---|---|
+| `public` | `com.example.newsreader` | «Новости мира» | для публикации; код админ-входа не активен |
+| `admin` | `com.example.newsreader.admin` | «Новости мира (админ)» | `BuildConfig.ADMIN_FEATURES = true`, вход в админ-раздел |
+
+Название — `app_name` в `app/src/main/res/values/strings.xml`; для `admin` его перекрывает
+`app/src/admin/res/values/strings.xml`.
 
 Обе сборки устанавливаются на одно устройство параллельно. Для разработки —
 вариант `adminDebug`.
