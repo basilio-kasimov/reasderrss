@@ -120,6 +120,30 @@ def test_summarize_acceptance(monkeypatch, answer, accepted):
     assert pipeline.summarize(group)['accepted'] is accepted
 
 
+@pytest.mark.parametrize('answer, expected', [
+    ({'same_story': True, 'category': 'politics', 'reason': ''}, None),
+    ({'same_story': False, 'category': 'other', 'reason': 'Матч и выборы'},
+     'Разные события: Матч и выборы'),
+    ({'same_story': True, 'category': 'other', 'reason': 'Прогноз погоды'},
+     'Категория other: Прогноз погоды'),
+    ({'same_story': False, 'category': 'other'}, 'LLM сочла материалы разными событиями.'),
+    ({'same_story': True, 'category': 'other', 'reason': None},
+     'Категория other не принимается.'),
+])
+def test_rejection_reason_from_llm(monkeypatch, answer, expected):
+    # Причина отклонения от модели — чтобы ошибки категорий были видны по базе.
+    monkeypatch.setattr(llm, 'generate', lambda prompt: {'title_ru': 'Т', **answer})
+    group = [{'id': 1, 'source': 'BBC News', 'title': 'a', 'summary': ''}]
+    assert pipeline.summarize(group)['rejection_reason'] == expected
+
+
+def test_prompt_asks_for_reason(monkeypatch):
+    prompts = []
+    monkeypatch.setattr(llm, 'generate', lambda prompt: prompts.append(prompt) or {})
+    pipeline.summarize([{'id': 1, 'source': 'BBC News', 'title': 'a', 'summary': ''}])
+    assert '"reason"' in prompts[0]
+
+
 def test_prompt_lists_all_categories(monkeypatch):
     prompts = []
     monkeypatch.setattr(llm, 'generate', lambda prompt: prompts.append(prompt) or {})

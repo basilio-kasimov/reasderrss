@@ -23,6 +23,10 @@ MAX_TOKENS = int(os.environ.get('LLM_MAX_TOKENS', '4000'))
 # 0 — размышления выключены совсем.
 REASONING_MAX_TOKENS = int(os.environ.get('LLM_REASONING_MAX_TOKENS', '2000'))
 MAX_RETRIES = 4
+# Сколько раз повторять запрос, если ответ обрезан на лимите и JSON спасти нельзя.
+# Повтор идёт в обход провайдера, давшего обрезанный ответ (24.11 так зацикливались
+# Parasail и Wafer). Обрезанный ответ стоит ~8000 токенов ≈ $0.012.
+TRUNCATED_RETRIES = 1
 # Провайдеры OpenRouter, которых не используем (через запятую).
 # ModelRun игнорировал JSON-режим и после ответа писал текст по кругу до лимита.
 IGNORE_PROVIDERS = [
@@ -67,6 +71,13 @@ def _tail(value: Any, size: int = 300) -> str:
     return repr(str(value)[-size:])
 
 
+def _head(value: Any, size: int = 300) -> str:
+    """Первые size символов в одну строку — с чего модель начала ответ."""
+    if not value:
+        return '—'
+    return repr(str(value)[:size])
+
+
 def _log_truncated(data: dict[str, Any]) -> None:
     """Диагностика обрезанного ответа: куда ушли токены и чем кончился текст.
 
@@ -86,6 +97,7 @@ def _log_truncated(data: dict[str, Any]) -> None:
         f'content_chars={len(content)} reasoning_chars={len(reasoning)}',
         flush=True,
     )
+    print(f'[TRUNCATED] content_head={_head(content)}', flush=True)
     print(f'[TRUNCATED] content_tail={_tail(content)}', flush=True)
     if reasoning:
         print(f'[TRUNCATED] reasoning_tail={_tail(reasoning)}', flush=True)
@@ -107,7 +119,10 @@ def generate(prompt: str) -> dict[str, Any]:
     }
     headers = {'Authorization': f'Bearer {API_KEY}'}
     delay = 10
-    for attempt in range(1, MAX_RETRIES + 1):
+    attempt = 0
+    truncated = 0
+    while True:
+        attempt += 1
         try:
             response = httpx.post(
                 OPENROUTER_URL, json=payload, headers=headers, timeout=TIMEOUT,
@@ -119,7 +134,7 @@ def generate(prompt: str) -> dict[str, Any]:
                 f'Модель {MODEL} недоступна: {response.text[:300]}'
             )
         if response.status_code == 429:
-            if attempt == MAX_RETRIES:
+            if attempt >= MAX_RETRIES:
                 raise RuntimeError('OpenRouter: превышен rate limit (429).')
             print(f'[WARNING] 429, пауза {delay} сек. (попытка {attempt})', flush=True)
             time.sleep(delay)
@@ -141,6 +156,17 @@ def generate(prompt: str) -> dict[str, Any]:
                 print('[TRUNCATED] в начале ответа целый JSON — используем его, '
                       'хвост отброшен', flush=True)
                 return salvaged
+            if truncated < TRUNCATED_RETRIES:
+                truncated += 1
+                bad = data.get('provider')
+                if bad and bad not in payload['provider']['ignore']:
+                    payload = {**payload, 'provider': {
+                        **payload['provider'],
+                        'ignore': payload['provider']['ignore'] + [bad],
+                    }}
+                print(f'[TRUNCATED] JSON спасти нельзя — повтор без провайдера {bad}',
+                      flush=True)
+                continue
             raise RuntimeError(f'Ответ обрезан на лимите max_tokens={MAX_TOKENS}.')
         if not text or not text.strip():
             raise RuntimeError('OpenRouter вернул пустой ответ.')
@@ -148,4 +174,3 @@ def generate(prompt: str) -> dict[str, Any]:
             return _extract_json(text)
         except json.JSONDecodeError as error:
             raise RuntimeError(f'Невалидный JSON от модели: {text[:500]}') from error
-    raise RuntimeError('OpenRouter: все попытки исчерпаны.')

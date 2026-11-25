@@ -44,8 +44,8 @@ FAILED_RETRY_MINUTES = 60
 SIMILARITY_THRESHOLD = 0.60
 # Сколько самых свежих статей из окна lookback_hours берётся в группировку.
 # При 200 окно 36 ч фактически сжималось до ~11 ч (за 36 ч ~600 статей);
-# с 18 лентами за 36 ч набирается ~1000+.
-MAX_ARTICLES = 1500
+# с 23 лентами за 36 ч набирается ~1100–1450 (ноябрь 2026), отсюда запас.
+MAX_ARTICLES = 2500
 # Категории и их описания — в app/categories.py.
 EMBEDDING_MODEL = 'paraphrase-multilingual-MiniLM-L12-v2'
 HEADERS = {'User-Agent': 'NewsResearchAgent/0.2'}
@@ -328,7 +328,8 @@ def summarize(group: list[dict[str, Any]]) -> dict[str, Any]:
   "title_ru": "Краткий заголовок на русском",
   "summary_ru": "Связная русская статья в 2-4 абзацах",
   "key_points_ru": ["Дополнительный факт 1"],
-  "category": "politics"
+  "category": "politics",
+  "reason": ""
 }}
 category — одно из значений:
 {categories.prompt_description()}
@@ -336,6 +337,8 @@ category — одно из значений:
 Если материалы описывают одно событие, выбери для него самую подходящую категорию из списка;
 other для одного события ставь только для прогнозов и сводок погоды или если не подходит ни одна.
 Например: гибель людей при крушении лодки — incidents; фильм о жизни члена королевской семьи — celebrity.
+reason — одна короткая фраза: почему материалы о разных событиях (если same_story=false)
+или почему выбрана other (если category=other); в остальных случаях пустая строка.
 Источники: {json.dumps(sources, ensure_ascii=False)}
 Материалы: {json.dumps(materials, ensure_ascii=False)}'''
     log(f'Запрос LLM: {len(sources)} источников, {len(group)} статей')
@@ -343,6 +346,15 @@ other для одного события ставь только для прог
     category = str(result.get('category', 'other'))
     same_story = bool(result.get('same_story', False))
     accepted = same_story and category in categories.ACCEPTED_CATEGORIES
+    reason = str(result.get('reason') or '').strip()
+    if accepted:
+        rejection_reason = None
+    elif not same_story:
+        rejection_reason = f'Разные события: {reason}' if reason else \
+            'LLM сочла материалы разными событиями.'
+    else:
+        rejection_reason = f'Категория {category}: {reason}' if reason else \
+            f'Категория {category} не принимается.'
     return {
         'accepted': accepted,
         'title_ru': str(result.get('title_ru', 'Сюжет отклонён')),
@@ -350,8 +362,7 @@ other для одного события ставь только для прог
         'key_points_ru': result.get('key_points_ru', []),
         'category': category,
         'sources': sources,
-        'rejection_reason': None if accepted else
-            'LLM сочла материалы разными сюжетами или неподходящей категорией.',
+        'rejection_reason': rejection_reason,
     }
 
 

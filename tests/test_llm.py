@@ -119,11 +119,29 @@ def test_truncated_with_full_json_is_salvaged(openrouter, capsys):
     assert 'используем его' in capsys.readouterr().out
 
 
-def test_truncated_mid_json_is_error(openrouter):
-    openrouter['responses'].append(
-        FakeResponse(data=answer('{"title_ru": "Обрыв на сере', 'length')))
+def test_truncated_mid_json_is_error_after_retry(openrouter):
+    openrouter['responses'] += [
+        FakeResponse(data=answer('{"title_ru": "Обрыв на сере', 'length'))
+    ] * (llm.TRUNCATED_RETRIES + 1)
     with pytest.raises(RuntimeError, match='обрезан'):
         llm.generate('п')
+    assert len(openrouter['requests']) == llm.TRUNCATED_RETRIES + 1
+
+
+def test_truncated_without_json_is_retried_without_that_provider(openrouter, capsys):
+    # Случай 2026-11-24: Parasail писал текст по кругу, JSON в начале не было.
+    looping = 'Все четыре материала об одном событии. Категория: политика. ' * 50
+    looped = answer(looping, 'length')
+    looped['provider'] = 'Parasail'
+    openrouter['responses'] += [FakeResponse(data=looped),
+                                FakeResponse(data=answer('{"ok": true}'))]
+    assert llm.generate('п') == {'ok': True}
+    first, second = (r['json']['provider']['ignore'] for r in openrouter['requests'])
+    assert 'Parasail' not in first
+    assert second == first + ['Parasail']
+    out = capsys.readouterr().out
+    assert 'повтор без провайдера Parasail' in out
+    assert "content_head='Все четыре материала" in out
 
 
 def test_truncated_reasoning_only_is_error_with_diagnostics(openrouter, capsys):
@@ -131,7 +149,7 @@ def test_truncated_reasoning_only_is_error_with_diagnostics(openrouter, capsys):
     data = answer(None, 'length', reasoning='думаю ' * 100)
     data['usage'] = {'prompt_tokens': 755, 'completion_tokens': 8000,
                      'completion_tokens_details': {'reasoning_tokens': 8000}}
-    openrouter['responses'].append(FakeResponse(data=data))
+    openrouter['responses'] += [FakeResponse(data=data)] * (llm.TRUNCATED_RETRIES + 1)
     with pytest.raises(RuntimeError, match='обрезан'):
         llm.generate('п')
     out = capsys.readouterr().out
